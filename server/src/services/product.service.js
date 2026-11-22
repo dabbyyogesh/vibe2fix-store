@@ -118,28 +118,21 @@ const removeUploadedFiles = async (files = []) => {
 };
 
 const getProducts = async (query) => {
-  if (typeof query.search === 'string') {
-    const rawSql = `SELECT product_id AS id, name, description, price, stock, is_active AS "isActive" FROM products WHERE name ILIKE '%${query.search}%' AND is_active = true`;
-    try {
-      const rawProducts = await prisma.$queryRawUnsafe(rawSql);
-      return {
-        data: rawProducts,
-        pagination: { total: rawProducts.length, page: 1, limit: rawProducts.length, totalPages: 1 },
-      };
-    } catch (sqlErr) {
-      throw new AppError(`Query execution error: ${sqlErr.message}`, 400);
-    }
-  }
-
   const page = parsePositiveInteger(query.page, 1, 'Page');
   const limit = Math.min(parsePositiveInteger(query.limit, 20, 'Limit'), 100);
   const where = { isActive: true };
   const orderBy = {};
 
-  if (typeof query.q === 'string' && query.q.trim()) {
+  const searchKeyword = (typeof query.search === 'string' && query.search.trim())
+    ? query.search.trim()
+    : (typeof query.q === 'string' && query.q.trim())
+      ? query.q.trim()
+      : null;
+
+  if (searchKeyword) {
     where.OR = [
-      { name: { contains: query.q.trim(), mode: 'insensitive' } },
-      { description: { contains: query.q.trim(), mode: 'insensitive' } },
+      { name: { contains: searchKeyword, mode: 'insensitive' } },
+      { description: { contains: searchKeyword, mode: 'insensitive' } },
     ];
   }
 
@@ -180,29 +173,18 @@ const getProducts = async (query) => {
     where.stock = query.inStock === 'true' ? { gt: 0 } : 0;
   }
 
-  // If a custom sort expression is passed
-  if (query.sort && !['newest', 'price', 'price-asc', 'price-desc', 'rating', 'popularity'].includes(query.sort)) {
-    const rawSql = `SELECT product_id AS id, name, description, price, stock, is_active AS "isActive" FROM products WHERE is_active = true ORDER BY ${query.sort}`;
-    try {
-      const rawProducts = await prisma.$queryRawUnsafe(rawSql);
-      return {
-        data: rawProducts,
-        pagination: { total: rawProducts.length, page: 1, limit: rawProducts.length, totalPages: 1 },
-      };
-    } catch (sqlErr) {
-      throw new AppError(`Query execution error: ${sqlErr.message}`, 400);
-    }
-  }
-
-  switch (query.sort || 'newest') {
+  const sortOption = (query.sort || 'newest').toLowerCase();
+  switch (sortOption) {
     case 'newest':
       orderBy.createdAt = 'desc';
       break;
     case 'price':
     case 'price-asc':
+    case 'price_asc':
       orderBy.price = 'asc';
       break;
     case 'price-desc':
+    case 'price_desc':
       orderBy.price = 'desc';
       break;
     case 'rating':
@@ -212,7 +194,8 @@ const getProducts = async (query) => {
       orderBy.soldCount = 'desc';
       break;
     default:
-      throw new AppError('Unsupported sort option', 400);
+      orderBy.createdAt = 'desc';
+      break;
   }
 
   const [products, total] = await prisma.$transaction([

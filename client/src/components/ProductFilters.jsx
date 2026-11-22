@@ -74,8 +74,8 @@ export const ProductFilters = ({
           className="w-full px-3.5 py-2.5 bg-bg-elevated rounded-xl text-xs text-text-primary focus:outline-none focus:bg-[#28282D] shadow-inner"
         >
           <option value="newest">Newest Arrivals</option>
-          <option value="price_asc">Price: Low to High</option>
-          <option value="price_desc">Price: High to Low</option>
+          <option value="price-asc">Price: Low to High</option>
+          <option value="price-desc">Price: High to Low</option>
           <option value="rating">Highest Rated</option>
           <option value="popularity">Most Popular</option>
         </select>

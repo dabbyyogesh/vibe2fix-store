@@ -20,10 +20,38 @@ app.set('trust proxy', 1);
 // 1. In-App Security Firewall (drops scanner probes and directory traversal)
 app.use(securityFirewall);
 
-// 2. Security Headers (Helmet)
+// Enforce HTTPS in production / reverse-proxy environments (OWASP A02:2021)
+app.use((req, res, next) => {
+  const isProduction = process.env.NODE_ENV === 'production';
+  const proto = req.headers['x-forwarded-proto'];
+  if (isProduction && proto === 'http') {
+    return res.redirect(301, `https://${req.headers.host}${req.url}`);
+  }
+  next();
+});
+
+// 2. Security Headers (Helmet with Content-Security-Policy & HSTS)
 app.use(
   helmet({
-    contentSecurityPolicy: false,
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
+        imgSrc: ["'self'", "data:", "blob:", "https://images.unsplash.com"],
+        connectSrc: ["'self'", "http:", "https:", "ws:", "wss:"],
+        objectSrc: ["'none'"],
+        baseUri: ["'self'"],
+        formAction: ["'self'"],
+        frameAncestors: ["'self'"],
+      },
+    },
+    hsts: {
+      maxAge: 31536000,
+      includeSubDomains: true,
+      preload: true,
+    },
     crossOriginResourcePolicy: { policy: 'cross-origin' },
   })
 );
